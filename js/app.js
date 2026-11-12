@@ -113,7 +113,8 @@ function startPage() {
   const looks = $$('.look img');
   const onScroll = () => { $('#nav').classList.toggle('scrolled', scrollY > 30); looks.forEach((im) => { const r = im.parentElement.getBoundingClientRect(); if (r.bottom < 0 || r.top > innerHeight) return; const p = Math.max(-0.5, Math.min(0.5, (r.top + r.height / 2 - innerHeight / 2) / innerHeight)); im.style.setProperty('--py', -5.3 - p * 10 + '%'); }); };
   addEventListener('scroll', onScroll, { passive: true }); onScroll();
-  (window.requestIdleCallback || setTimeout)(() => room.preload().catch(() => {}), { timeout: 4000 });
+  // o 3D só começa a carregar quando o visitante demonstra interesse numa peça (não pesa a vitrine)
+  const warm = (e) => e.target.closest?.('[data-open]') && room.preload().catch(() => {}); addEventListener('pointerover', warm, { passive: true }); addEventListener('touchstart', warm, { passive: true });
 }
 
 /* ---------- PORTÃO DE LARGADA ---------- */

@@ -37,7 +37,7 @@ float botM(vec3 p, vec2 arm){ return uBotOn*step(uBot.y,p.y)*step(p.y,uBot.x)*(1
 `;
 const VERT = /* glsl */ `
 attribute vec2 _arm;
-uniform float uTopLoose, uBotLoose, uTopDrape; uniform vec3 uEnvA, uEnvB, uEnvC;
+uniform float uTopLoose, uBotLoose, uTopDrape, uSway; uniform vec3 uEnvA, uEnvB, uEnvC;
 // "Caimento": projeta o tronco vestido num envelope liso, como tecido solto sobre o corpo.
 vec3 drape(vec3 p, float amt, out vec3 n, out float k){
   k=0.; n=vec3(0.,0.,1.); float y=p.y;
@@ -51,30 +51,43 @@ vec3 drape(vec3 p, float amt, out vec3 n, out float k){
 }`;
 const FRAG = /* glsl */ `
 uniform vec3 uTopA,uTopB,uTopAcc,uBotA,uBotB,uBotAcc; uniform float uWipeT,uWipeB,uZip;
-float gMask; vec3 gGlow;`;
+float gMask, gRough; vec3 gGlow;`;
 const FRAG_BODY = /* glsl */ `
-{ vec3 p=vBind; float ax=abs(p.x); gMask=0.; gGlow=vec3(0.); bool arm=vArm.y>.5;
-  float tm=topM(p,vArm), bm=(1.-tm)*botM(p,vArm);
+{ vec3 p=vBind; float ax=abs(p.x); gMask=0.; gGlow=vec3(0.); gRough=.78; bool arm=vArm.y>.5;
+  float tm=topM(p,vArm), bm=(1.-tm)*botM(p,vArm), far=clamp(1.-fwidth(p.y)*260.,0.,1.), side=smoothstep(.93,.975,abs(vBN.x));
   if(tm>.5){
-    float e=mix(uTop.x-.06,1.66,uWipeT); vec3 c=p.y<e?uTopB:uTopA;
+    float e=mix(uTop.x-.06,1.66,uWipeT); vec3 c=p.y<e?uTopB:uTopA, base=c;
+    float neck=uNeck-uTop.z*(p.z>-.02?1.:.4)*(1.-smoothstep(.02,.11,ax));
     float trim=arm?0.:step(p.y,uTop.x+.014);
     if(arm&&vArm.x>uTop.y-.035) trim=1.;
-    if(uZip>.5&&p.z>0.&&ax<.005&&!arm) trim=1.;
-    if(uZip>.5&&p.y>uNeck-.03&&ax<.075) trim=1.;
-    if(!arm&&p.z>0.&&p.x>.05&&uTop.x<1.2){ float by=(p.y-1.325)/.0075, bi=floor(by); if(bi>=0.&&bi<3.&&fract(by)<.55&&p.x<.105-bi*.012) trim=1.; }   // marca no peito
+    if(uZip>.5){ gRough=.42;                                                   // jaqueta: nylon, zíper, gola, refletivos e bolsos
+      if(p.z>0.&&ax<.005&&!arm) trim=1.;
+      if(p.y>uNeck-.03&&ax<.075) trim=1.;
+      if(!arm&&p.z>0.&&p.y>1.0&&p.y<1.1&&abs(ax-.085-(p.y-1.0)*.35)<.0028) trim=1.;
+    } else if(!arm){
+      if(uTop.x<1.2&&p.y<1.3) { c=mix(c,base*.8,side*.85); c*=1.-.3*side*far*step(.3,length(fract(p.yz*240.)-.5)); }   // recorte lateral em tela
+      if(p.z>0.&&p.x>.05&&uTop.x<1.2){ float by=(p.y-1.325)/.0075, bi=floor(by); if(bi>=0.&&bi<3.&&fract(by)<.55&&p.x<.105-bi*.012) trim=1.; }   // marca no peito
+    }
     c=mix(c,uTopAcc,trim);
-    if(!arm) c*=1.-.22*(1.-smoothstep(0.,.0013,abs(p.y-uTop.x-.022)));   // pesponto da barra
+    if(!arm&&uZip<.5&&p.y>neck-.017) c=base*(.8+.12*far*step(.5,fract(atan(p.x,p.z+.02)*46.)));    // gola canelada
+    if(arm&&trim>.5) c*=.86+.14*far*step(.5,fract(vArm.y*90.+p.z*300.));                           // punho canelado
+    if(uZip>.5&&!arm&&abs(p.y-1.365)<.007){ c=vec3(.82,.84,.86); gRough=.2; gGlow+=vec3(.1); }      // faixa refletiva
+    if(!arm) c*=1.-.22*(1.-smoothstep(0.,.0013,abs(p.y-uTop.x-.022)));                             // pesponto da barra
     diffuseColor.rgb=c; gMask=1.;
-    gGlow=uTopB*1.4*(1.-smoothstep(0.,.022,abs(p.y-e)))*step(uWipeT,.995);
+    gGlow+=uTopB*1.4*(1.-smoothstep(0.,.022,abs(p.y-e)))*step(uWipeT,.995);
   } else if(bm>.5){
-    float e=mix(uBot.y-.06,uBot.x+.06,uWipeB); vec3 c=p.y<e?uBotB:uBotA;
-    float trim=step(uBot.x-.032,p.y)*.6;
-    if(uBot.z>.5&&abs(vBN.x)>.94&&ax>.12&&p.y<uBot.x-.032) trim=1.;      // faixa lateral
-    if(uBot.w>.5&&p.y<uBot.y+.045) trim=1.;
-    c=mix(c,uBotAcc,trim);
+    float e=mix(uBot.y-.06,uBot.x+.06,uWipeB); vec3 c=p.y<e?uBotB:uBotA, base=c; bool leg=uBot.z<.5&&uBot.w<.5;
+    if(leg){ gRough=.5; c=mix(c,base*1.3+.025,side*.8*step(p.y,uBot.x-.04)); }                      // legging: recorte lateral tom sobre tom
+    else if(abs(vBN.x)>.94&&ax>.12&&p.y<uBot.x-.032) c=uBotAcc;                                    // faixa lateral
+    if(p.y>uBot.x-.034) c=mix(base*.78,uBotAcc,.75*step(.55,fract(atan(p.x,p.z+.03)*9.)));         // cós com fita de marca
+    if(!leg&&p.z>0.&&p.y<uBot.x-.03&&p.y>uBot.x-.1&&abs(ax-.01-(uBot.x-.03-p.y)*.22)<.0032) c=vec3(.93,.91,.86);   // cordão
+    if(uBot.w>.5&&p.y<uBot.y+.045) c=uBotAcc*(.86+.14*far*step(.5,fract(atan(p.x,p.z)*30.)));      // punho da barra
     c*=1.-.2*(1.-smoothstep(0.,.0013,abs(p.y-uBot.y-.02)));
     diffuseColor.rgb=c; gMask=1.;
-    gGlow=uBotB*1.4*(1.-smoothstep(0.,.022,abs(p.y-e)))*step(uWipeB,.995);
+    gGlow+=uBotB*1.4*(1.-smoothstep(0.,.022,abs(p.y-e)))*step(uWipeB,.995);
+  } else {                                                                                        // manequim: frisos de encaixe como nas peças de vitrine
+    float g=0.; if(arm) g=1.-smoothstep(0.,.0035,abs(vArm.x-.985)); else g=max(1.-smoothstep(0.,.0016,abs(p.y-1.035)), (1.-smoothstep(0.,.0016,abs(p.y-uNeck-.028)))*step(ax,.09));
+    diffuseColor.rgb*=1.-.5*g;
   }
 }`;
 const FRAG_BUMP = /* glsl */ `
@@ -91,19 +104,20 @@ const V3 = THREE.Vector3;
 
 export async function createFitting(canvas, onProgress = () => {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const LOW = matchMedia('(max-width: 920px), (pointer: coarse)').matches || (navigator.hardwareConcurrency || 4) <= 4;   // aparelho modesto: qualidade mais leve
+  let dpr = Math.min(devicePixelRatio, LOW ? 1.25 : 1.6); renderer.setPixelRatio(dpr);
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08;
-  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = LOW ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
   const scene = new THREE.Scene(); scene.background = col('#191613'); scene.fog = new THREE.Fog('#191613', 9, 19);
   const cam = new THREE.PerspectiveCamera(28, 1, 0.1, 40);
 
   // ---------- carregamento
-  let done = 0; const tick = (p) => (done++, onProgress(done / 9), p);
+  let done = 0; const tick = (p) => (done++, onProgress(done / 8), p);
   const gl = new GLTFLoader(), tl = new THREE.TextureLoader(), E = 'assets/env/';
   const tex = (f, rx, ry, srgb) => tl.loadAsync(E + f).then((t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = 8; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return tick(t); });
-  const [gm, gf, hdr, fD, fN, fR, wD, wN] = await Promise.all([
+  const [gm, gf, hdr, fD, fN, wD, wN] = await Promise.all([
     gl.loadAsync('assets/models/manequim-m.glb').then(tick), gl.loadAsync('assets/models/manequim-f.glb').then(tick), new RGBELoader().loadAsync(E + 'studio.hdr').then(tick),
-    tex('herringbone_parquet_diff.jpg', 9, 9, true), tex('herringbone_parquet_nor.jpg', 9, 9), tex('herringbone_parquet_rough.jpg', 9, 9),
+    tex('herringbone_parquet_diff.jpg', 9, 9, true), tex('herringbone_parquet_nor.jpg', 9, 9),
     tex('beige_wall_001_diff.jpg', 5, 2, true), tex('beige_wall_001_nor.jpg', 5, 2),
   ]);
   scene.environment = new THREE.PMREMGenerator(renderer).fromEquirectangular(hdr).texture; hdr.dispose(); tick();
@@ -112,7 +126,7 @@ export async function createFitting(canvas, onProgress = () => {}) {
   // ---------- cenário: loja-estúdio
   const FLOOR = -0.14, std = (o) => new THREE.MeshStandardMaterial(o), brass = std({ color: 0xb48a4c, metalness: 1, roughness: 0.28 });
   const add = (geo, mat, x = 0, y = 0, z = 0, parent = scene) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; parent.add(m); return m; };
-  const floor = add(new THREE.PlaneGeometry(18, 18), std({ map: fD, normalMap: fN, roughnessMap: fR, roughness: 0.9, envMapIntensity: 0.7 }), 0, FLOOR, 0); floor.rotation.x = -Math.PI / 2; floor.castShadow = false;
+  const floor = add(new THREE.PlaneGeometry(18, 18), std({ map: fD, normalMap: fN, roughness: 0.62, envMapIntensity: 0.7 }), 0, FLOOR, 0); floor.rotation.x = -Math.PI / 2; floor.castShadow = false;
   const wallMat = std({ map: wD, normalMap: wN, color: 0xf3ece0, roughness: 0.92 });
   add(new THREE.PlaneGeometry(18, 6), wallMat, 0, FLOOR + 3, -3.4).castShadow = false;
   add(new THREE.BoxGeometry(18, 0.14, 0.04), std({ color: 0xf5f1e8, roughness: 0.5 }), 0, FLOOR + 0.07, -3.38);
@@ -154,7 +168,7 @@ export async function createFitting(canvas, onProgress = () => {}) {
   // ---------- luz
   scene.add(new THREE.HemisphereLight(0xfff3e2, 0x5a4636, 0.35));
   const key = new THREE.SpotLight(0xfff0dc, 95, 14, 0.42, 0.55, 1.6); key.position.set(2.6, 5.2, 4.2); key.target.position.set(0, 0.9, 0); key.castShadow = true;
-  key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0003; key.shadow.radius = 5; scene.add(key, key.target);
+  key.shadow.mapSize.set(LOW ? 768 : 1280, LOW ? 768 : 1280); key.shadow.bias = -0.0004; key.shadow.radius = 4; key.shadow.autoUpdate = false; scene.add(key, key.target);
   const rim = new THREE.SpotLight(0xdfe9ff, 60, 12, 0.5, 0.7, 1.6); rim.position.set(-3.2, 3.6, -2.2); rim.target.position.set(0, 1.1, 0); scene.add(rim, rim.target);
   const wash = new THREE.PointLight(0xe2492b, 4.2, 6, 1.8); wash.position.set(0, 0.5, -2.7); scene.add(wash);          // banho de luz na cor da peça
   const glow = new THREE.PointLight(0xe2492b, 1.6, 2.2, 2); glow.position.set(0, FLOOR + 0.06, 0); scene.add(glow);
@@ -163,7 +177,7 @@ export async function createFitting(canvas, onProgress = () => {}) {
   const U = {
     uTop: { value: new THREE.Vector4() }, uBot: { value: new THREE.Vector4() }, uTopOn: { value: 0 }, uBotOn: { value: 0 }, uZip: { value: 0 },
     uTopA: { value: col('#888') }, uTopB: { value: col('#888') }, uTopAcc: { value: col('#111') }, uBotA: { value: col('#333') }, uBotB: { value: col('#333') }, uBotAcc: { value: col('#111') },
-    uWipeT: { value: 1 }, uWipeB: { value: 1 }, uTopLoose: { value: 0 }, uBotLoose: { value: 0 }, uTopDrape: { value: 1 },
+    uWipeT: { value: 1 }, uWipeB: { value: 1 }, uTopLoose: { value: 0 }, uBotLoose: { value: 0 }, uTopDrape: { value: 1 }, uSway: { value: 0 },
   };
   const strapMat = std({ color: 0x141416, roughness: 0.7 }), caseMat = std({ color: 0x2a2a2e, metalness: 0.95, roughness: 0.22 });
   const faceCv = document.createElement('canvas'); faceCv.width = faceCv.height = 256;
@@ -183,20 +197,22 @@ export async function createFitting(canvas, onProgress = () => {}) {
     model.traverse((o) => {
       if (o.isBone) B[o.name] = o;
       if (!o.isMesh) return; o.castShadow = o.receiveShadow = true; o.frustumCulled = false;
-      const m = new THREE.MeshPhysicalMaterial({ color: 0xe9e3d8, roughness: 0.46, clearcoat: 0.3, clearcoatRoughness: 0.38, sheen: 1, sheenRoughness: 0.5, sheenColor: 0x555049 });
+      const m = LOW ? new THREE.MeshStandardMaterial({ color: 0xe9e3d8, roughness: 0.4 }) : new THREE.MeshPhysicalMaterial({ color: 0xe9e3d8, roughness: 0.4, sheen: 1, sheenRoughness: 0.5, sheenColor: 0x555049 });
       m.onBeforeCompile = (sh) => {
         Object.assign(sh.uniforms, U, own);
         sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + HEAD + VERT)
           .replace('#include <beginnormal_vertex>', `float tm=topM(position,_arm), bm=(1.-tm)*botM(position,_arm), dk; vec3 dn;
             vec3 dp=drape(position,(tm*uTopDrape+bm)*(1.-step(.5,_arm.y)),dn,dk);
             vec3 gN=normalize(mix(normal,dn,dk)); vec3 objectNormal=gN;`)
-          .replace('#include <begin_vertex>', `vBind=position; vArm=_arm; vBN=normal; vec3 transformed=dp+gN*(tm*uTopLoose+bm*uBotLoose);`);
+          .replace('#include <begin_vertex>', `vBind=position; vArm=_arm; vBN=normal; vec3 transformed=dp+gN*(tm*uTopLoose+bm*uBotLoose);
+            float hemK=tm*uTopDrape*(1.-step(.5,_arm.y))*pow(1.-clamp((position.y-uTop.x)/.2,0.,1.),2.);   // balanço da barra ao andar
+            transformed.z+=uSway*hemK*.02; transformed.x+=uSway*hemK*.008*sign(position.x);`);
         sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + HEAD + FRAG)
           .replace('#include <color_fragment>', '#include <color_fragment>\n' + FRAG_BODY)
-          .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor=mix(roughnessFactor,.78,gMask);')
+          .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor=mix(roughnessFactor,gRough,gMask);')
           .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + FRAG_BUMP)
           .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance+=gGlow;')
-          .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\nmaterial.clearcoat*=1.-gMask; material.sheenColor*=gMask;');
+          .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n\n#ifdef USE_SHEEN\nmaterial.sheenColor*=gMask;\n#endif\n');
       };
       o.material = m;
     });
@@ -227,7 +243,7 @@ export async function createFitting(canvas, onProgress = () => {}) {
   const P = { ...MOTION.idle }; let motion = 'idle', ph = 0;
   function pose({ B, R }, t, dt) {
     const T = MOTION[motion], k = 1 - Math.exp(-dt * 5); for (const key in P) P[key] += (T[key] - P[key]) * k;
-    ph += dt * P.w; const s = Math.sin(ph), c = Math.cos(ph), br = Math.sin(t * 1.5);
+    ph += dt * P.w; U.uSway.value = Math.sin(ph * 2) * P.A; const s = Math.sin(ph), c = Math.cos(ph), br = Math.sin(t * 1.5);
     for (const [sd, sg] of [['L', 1], ['R', -1]]) {
       const F = sg * s;
       B['upperleg01_' + sd].rotation.set(-P.A * F - P.lean * 0.4, 0, R['leg' + sd]);
@@ -254,10 +270,13 @@ export async function createFitting(canvas, onProgress = () => {}) {
   const resize = () => { const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); };
   new ResizeObserver(resize).observe(canvas);
 
-  const clock = new THREE.Clock(); let running = false, time = 0;
+  const clock = new THREE.Clock(); let running = false, time = 0, fr = 0, slow = 0;
   function frame() {
     if (!running) return; requestAnimationFrame(frame);
-    const dt = Math.min(clock.getDelta(), 0.05), now = performance.now(); time += dt;
+    const raw = clock.getDelta(), dt = Math.min(raw, 0.05), now = performance.now(); time += dt; fr++;
+    // resolução adaptativa: se o aparelho não acompanha, reduz a nitidez em vez de travar
+    if (fr > 30 && raw < 0.25 && !document.hidden) { slow = raw > 0.034 ? slow + 1 : Math.max(0, slow - 2); if (slow > 24 && dpr > 0.7) { dpr = Math.max(0.7, dpr - 0.2); renderer.setPixelRatio(dpr); resize(); slow = 0; } }
+    if (motion !== 'idle' || st.drag || fr % 3 === 0) key.shadow.needsUpdate = true;
     const rg = rigs[cur]; pose(rg, time, dt);
     const wrist = st.focus === 'wrist';
     if (!st.drag) {
@@ -280,6 +299,7 @@ export async function createFitting(canvas, onProgress = () => {}) {
   }
   const hero = (c) => { ringMat.color.set(c); wash.color.set(c); glow.color.set(c); };
 
+  await renderer.compileAsync(scene, cam);   // compila os shaders antes de mostrar, sem engasgo no primeiro quadro
   return {
     start() { if (running) return; running = true; clock.getDelta(); resize(); frame(); },
     stop() { running = false; },
