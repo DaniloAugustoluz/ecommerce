@@ -131,3 +131,12 @@ $('#soundBtn').addEventListener('click', () => sfx.enable(!sfx.on));
 /* ---------- LINK DIRETO: ?p=id-da-peca abre o provador; ?skip pula a largada ---------- */
 { const q = new URLSearchParams(location.search), p = q.get('p');
   if (p || q.has('skip')) enter(false).then(() => { if (q.has('rot') || q.has('m')) room.preload().then((f) => { if (q.has('rot')) f.setRot(+q.get('rot')); if (q.has('m')) f.setMotion(q.get('m')); }); return p && room.open(p); }); }
+
+/* ---------- DEMO PERSONALIZADA: ?marca=Nome+da+Loja&cor=e2492b troca a marca e a cor de destaque ---------- */
+{ const q = new URLSearchParams(location.search), marca = (q.get('marca') || '').trim().slice(0, 28), cor = q.get('cor');
+  if (/^[0-9a-f]{6}$/i.test(cor || '')) document.documentElement.style.setProperty('--red', '#' + cor);
+  if (marca) { const up = marca.toUpperCase(), ls = up.length > 9 ? '.04em' : '.14em';
+    $$('.logo-mark').forEach((e) => { e.textContent = up; e.style.letterSpacing = ls; if (up.length > 12) e.style.fontSize = e.closest('.logo-lg') ? '2rem' : '1.15rem'; });
+    $$('.logo-script').forEach((e) => (e.textContent = 'provador 3D'));
+    document.title = marca + ' · Roupas de treino com provador 3D';
+    const f = $('.footer p'); if (f) f.textContent = 'Demonstração preparada para ' + marca + ' · imagens de exemplo.'; } }

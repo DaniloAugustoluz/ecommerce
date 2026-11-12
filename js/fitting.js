@@ -121,8 +121,10 @@ export async function createFitting(canvas, onProgress = () => {}) {
   for (let i = -9; i <= 9; i++) add(new THREE.BoxGeometry(0.075, 3.1, 0.05), wood, i * 0.115, FLOOR + 1.55, -3.34);
   // letreiro retroiluminado
   const sc = document.createElement('canvas'); sc.width = 1024; sc.height = 384;
-  { const g = sc.getContext('2d'); g.textAlign = 'center'; g.fillStyle = '#fff'; g.shadowColor = '#fff'; g.shadowBlur = 26; g.font = '800 210px "Bricolage Grotesque", Arial'; g.fillText('PISTA', 512, 215);
-    g.font = '120px "Yellowtail", cursive'; g.fillStyle = '#ffb199'; g.shadowColor = '#ff6a3d'; g.fillText('athletic club', 590, 330); }
+  { const g = sc.getContext('2d'); g.textAlign = 'center'; g.fillStyle = '#fff'; g.shadowColor = '#fff'; g.shadowBlur = 26; const brand = (new URLSearchParams(location.search).get('marca') || 'PISTA').trim().slice(0, 28).toUpperCase(); let fz = 210;
+    do { g.font = '800 ' + fz + 'px "Bricolage Grotesque", Arial'; fz -= 8; } while (g.measureText(brand).width > 960 && fz > 60);
+    g.fillText(brand, 512, 215); sc.dataset.sub = brand === 'PISTA' ? 'athletic club' : 'provador 3D';
+    g.font = '120px "Yellowtail", cursive'; g.fillStyle = '#ffb199'; g.shadowColor = '#ff6a3d'; g.fillText(sc.dataset.sub, 590, 330); }
   const signTex = new THREE.CanvasTexture(sc); signTex.colorSpace = THREE.SRGBColorSpace;
   const sign = add(new THREE.PlaneGeometry(1.7, 0.64), new THREE.MeshBasicMaterial({ map: signTex, transparent: true, toneMapped: false }), 0, 2.35, -3.3); sign.castShadow = sign.receiveShadow = false;
   // espelho de chão com moldura
