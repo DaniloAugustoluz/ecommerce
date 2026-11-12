@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PISTA Athletic Club · Roupas de treino com provador 3D</title>
+<meta name="description" content="Roupas fitness para corrida e academia. Prove cada peça em um manequim 3D antes de comprar.">
+<meta name="theme-color" content="#f4eee3">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23e2492b'/><path d='M14 46c8-22 28-22 36 0' fill='none' stroke='%23f4eee3' stroke-width='6' stroke-linecap='round'/><path d='M23 46c5-12 13-12 18 0' fill='none' stroke='%231b1915' stroke-width='6' stroke-linecap='round'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Yellowtail&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+</head>
+<body class="locked">
+
+<!-- ============ PORTÃO DE LARGADA ============ -->
+<div id="gate">
+  <div class="gate-lanes" aria-hidden="true"></div>
+  <div class="gate-card">
+    <div class="logo logo-lg"><span class="logo-mark">PISTA</span><span class="logo-script">athletic club</span></div>
+    <svg id="stopwatch" viewBox="0 0 220 250" aria-hidden="true">
+      <rect x="96" y="6" width="28" height="26" rx="6" class="sw-ink"/>
+      <rect x="84" y="0" width="52" height="14" rx="7" class="sw-red"/>
+      <rect x="168" y="42" width="22" height="16" rx="5" transform="rotate(42 179 50)" class="sw-ink"/>
+      <circle cx="110" cy="140" r="100" class="sw-shadow"/>
+      <circle cx="104" cy="134" r="100" class="sw-body"/>
+      <circle cx="104" cy="134" r="82" class="sw-face"/>
+      <g id="swTicks"></g>
+      <text x="104" y="84" class="sw-num">60</text><text x="158" y="141" class="sw-num">15</text><text x="104" y="198" class="sw-num">30</text><text x="50" y="141" class="sw-num">45</text>
+      <g id="swHand"><path d="M104 134V66" class="sw-hand"/><circle cx="104" cy="134" r="8" class="sw-red"/></g>
+    </svg>
+    <p class="gate-sub">Aqueça. Sua vitrine larga em instantes.</p>
+    <button id="enter" class="btn btn-red btn-xl">Toque para largar <span>♪</span></button>
+    <button id="enterMute" class="gate-mute">Entrar sem som</button>
+  </div>
+  <div class="gate-count" id="gateCount" aria-hidden="true"></div>
+</div>
+
+<!-- ============ NAV ============ -->
+<header class="nav" id="nav">
+  <a href="#topo" class="logo"><span class="logo-mark">PISTA</span><span class="logo-script">athletic club</span></a>
+  <nav class="nav-links">
+    <a href="#colecao">Coleção</a><a href="#provador">Provador 3D</a><a href="#tecnologia">Tecnologia</a><a href="#lookbook">Lookbook</a>
+  </nav>
+  <div class="nav-actions">
+    <button class="icon-btn" id="soundBtn" aria-label="Som" title="Som ligado/desligado">
+      <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="wave" d="M16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12"/><path class="mute" d="M17 9l5 6m0-6l-5 6"/></svg>
+    </button>
+    <button class="icon-btn icon-btn-volt" id="cartBtn" aria-label="Sacola">
+      <svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6a3 3 0 016 0v2"/></svg>
+      <b id="cartCount">0</b>
+    </button>
+  </div>
+</header>
+
+<main id="topo">
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <svg class="hero-lanes" viewBox="0 0 900 700" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M-20 690C200 640 520 560 920 220"/><path d="M-20 620C200 570 500 480 920 140"/><path d="M-20 550C180 500 480 400 920 60"/><path d="M-20 480C160 430 460 320 920 -20"/>
+  </svg>
+  <div class="hero-copy">
+    <span class="pill rv">Corrida &amp; academia · provador 3D</span>
+    <h1 class="h-display rv">Vista o treino <em>antes</em><br>de dar a largada.</h1>
+    <p class="lead rv">Roupas fitness pensadas para suar bonito. Gire o manequim em 3D, troque as cores com um deslize e monte o look completo antes de comprar.</p>
+    <div class="hero-cta rv">
+      <button class="btn btn-red" data-open="camiseta-aero">Abrir provador 3D</button>
+      <a class="btn btn-ghost" href="#colecao">Ver a coleção</a>
+    </div>
+    <ul class="stats rv">
+      <li><b data-count="360">0</b><i>°</i><span>visão da peça</span></li>
+      <li><b data-count="10">0</b><span>peças na largada</span></li>
+      <li><b data-count="30">0</b><i>dias</i><span>troca grátis</span></li>
+    </ul>
+  </div>
+  <div class="hero-art rv">
+    <div class="arch"><img src="assets/img/hero.jpg" alt="Corredor na posição de largada em pista vermelha" fetchpriority="high"></div>
+    <svg class="stamp" viewBox="0 0 200 200" aria-hidden="true"><defs><path id="circ" d="M100 100m-74 0a74 74 0 1 1 148 0a74 74 0 1 1-148 0"/></defs>
+      <circle cx="100" cy="100" r="96" class="stamp-bg"/><text><textPath href="#circ">PROVADOR 3D ✦ GIRE ✦ VISTA ✦ COMBINE ✦ </textPath></text>
+      <path d="M100 68v64M68 100h64" class="stamp-x"/></svg>
+    <div class="bib" aria-hidden="true"><small>RAIA</small><b>01</b></div>
+    <div class="sticker" aria-hidden="true">novo<br>drop</div>
+  </div>
+</section>
+
+<div class="marquee" aria-hidden="true"><div class="marquee-track" id="marquee"></div></div>
+
+<!-- ============ COLEÇÃO ============ -->
+<section class="section" id="colecao">
+  <header class="sec-head">
+    <span class="eyebrow rv">— Coleção</span>
+    <h2 class="h-sec rv">Escolha sua <em>raia</em></h2>
+    <p class="rv">Toque em uma peça para vesti-la no manequim 3D.</p>
+    <div class="filters rv" id="filters">
+      <button class="chip is-on" data-f="all">Tudo</button><button class="chip" data-f="f">Feminino</button><button class="chip" data-f="m">Masculino</button>
+      <button class="chip" data-f="corrida">Corrida</button><button class="chip" data-f="academia">Academia</button><button class="chip" data-f="acessorios">Acessórios</button>
+    </div>
+  </header>
+  <div class="grid" id="grid"></div>
+</section>
+
+<!-- ============ PROVADOR ============ -->
+<section class="section dark" id="provador">
+  <div class="dark-inner">
+    <div>
+      <span class="eyebrow rv">— Provador 3D</span>
+      <h2 class="h-sec rv">Experimente sem sair <em>do lugar</em></h2>
+      <p class="rv">Um manequim masculino e um feminino, articulados e em movimento. Veja o caimento de frente, de costas e correndo — do jeito que a roupa vai ser usada de verdade.</p>
+      <button class="btn btn-volt rv" data-open="legging-raia">Experimentar agora</button>
+    </div>
+    <ol class="steps">
+      <li class="rv"><svg viewBox="0 0 48 48"><path d="M8 24a16 8 0 1032 0 16 8 0 10-32 0"/><path d="M34 12l6 4-6 5"/><path d="M24 8v32"/></svg><div><b>Arraste para girar</b><span>Rotação 360° com zoom no detalhe da peça.</span></div></li>
+      <li class="rv"><svg viewBox="0 0 48 48"><circle cx="12" cy="24" r="6"/><circle cx="26" cy="24" r="8"/><circle cx="40" cy="24" r="5"/><path d="M4 40h40M36 36l8 4-8 4"/></svg><div><b>Deslize para trocar a cor</b><span>A cor nova varre a peça em tempo real. O tamanho também.</span></div></li>
+      <li class="rv"><svg viewBox="0 0 48 48"><rect x="8" y="26" width="32" height="16" rx="4"/><path d="M24 22V6M16 13l8-8 8 8"/></svg><div><b>Puxe as sugestões</b><span>Combine parte de cima, de baixo e relógio no mesmo look.</span></div></li>
+      <li class="rv"><svg viewBox="0 0 48 48"><circle cx="28" cy="9" r="4"/><path d="M14 22l8-7 8 3 5 7 7 1M22 15l-3 12 8 6 2 11M19 27l-5 8-9 2"/></svg><div><b>Veja em movimento</b><span>Parado, caminhando ou correndo: o tecido acompanha.</span></div></li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ TECNOLOGIA ============ -->
+<section class="section" id="tecnologia">
+  <header class="sec-head"><span class="eyebrow rv">— Tecnologia</span><h2 class="h-sec rv">Tecido que <em>trabalha</em> com você</h2></header>
+  <div class="feats">
+    <article class="feat rv"><svg viewBox="0 0 48 48"><path d="M24 6c8 10 12 16 12 23a12 12 0 01-24 0c0-7 4-13 12-23z"/><path d="M19 30a5 5 0 005 5"/></svg><h3>Dry Sprint</h3><p>Evapora o suor até 3× mais rápido que o algodão.</p></article>
+    <article class="feat rv"><svg viewBox="0 0 48 48"><path d="M6 24h36M24 6v36M12 18l-6 6 6 6M36 18l6 6-6 6M18 12l6-6 6 6M18 36l6 6 6-6"/></svg><h3>Elástico 4D</h3><p>Estica nas quatro direções e volta ao lugar, treino após treino.</p></article>
+    <article class="feat rv"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="9"/><path d="M24 4v6M24 38v6M4 24h6M38 24h6M10 10l4 4M34 34l4 4M38 10l-4 4M14 34l-4 4"/></svg><h3>Escudo UV50+</h3><p>Proteção solar tecida no fio, não some na lavagem.</p></article>
+    <article class="feat rv"><svg viewBox="0 0 48 48"><path d="M40 8C22 8 10 18 8 40c18-2 30-12 32-32z"/><path d="M8 40l20-20"/></svg><h3>Peso pluma</h3><p>A partir de 98 g: você esquece que está vestindo.</p></article>
+  </div>
+</section>
+
+<!-- ============ LOOKBOOK ============ -->
+<section class="section" id="lookbook">
+  <header class="sec-head"><span class="eyebrow rv">— Lookbook</span><h2 class="h-sec rv">Na pista, na rua, <em>no ritmo</em></h2></header>
+  <div class="looks">
+    <figure class="look l1 rv"><img src="assets/img/look1.jpg" alt="Corredor na pista ao nascer do sol" loading="lazy"><figcaption>Treino das 6h</figcaption></figure>
+    <figure class="look l2 rv"><img src="assets/img/look4.jpg" alt="Mulher praticando yoga ao ar livre" loading="lazy"><figcaption>Pausa ativa</figcaption></figure>
+    <figure class="look l3 rv"><img src="assets/img/look2.jpg" alt="Marcações de uma pista de atletismo" loading="lazy"><figcaption>Raia livre</figcaption></figure>
+    <figure class="look l4 rv"><img src="assets/img/jaquetaf.jpg" alt="Mulher de jaqueta vermelha caminhando" loading="lazy"><figcaption>Volta pra casa</figcaption></figure>
+  </div>
+</section>
+
+<section class="club rv">
+  <div><h2 class="h-sec">Pague do seu <em>jeito</em></h2><p>Pix com 5% off, cartão em até 6× sem juros ou boleto. Frete grátis acima de R$ 299.</p></div>
+  <ul class="pays"><li>PIX</li><li>CARTÃO</li><li>BOLETO</li></ul>
+  <small>Pagamentos em modo demonstração nesta versão.</small>
+</section>
+</main>
+
+<footer class="footer">
+  <div class="logo"><span class="logo-mark">PISTA</span><span class="logo-script">athletic club</span></div>
+  <p>Loja conceito · versão de apresentação. Imagens de exemplo via Unsplash.</p>
+  <p class="mono">© 2026 · Desenvolvido por Alpha Solution</p>
+</footer>
+
+<!-- ============ PROVADOR 3D (OVERLAY) ============ -->
+<section id="room" aria-hidden="true" role="dialog" aria-label="Provador 3D">
+  <div class="stage" id="stage">
+    <div class="ghost" aria-hidden="true"><div id="ghost"></div></div>
+    <canvas id="gl"></canvas>
+    <div class="stage-top">
+      <button class="chip chip-solid" id="roomClose">← Vitrine</button>
+      <div class="seg" id="genderSeg"><button data-g="m">Masculino</button><button data-g="f">Feminino</button></div>
+    </div>
+    <div class="stage-side">
+      <div class="seg seg-v" id="motionSeg" title="Movimento"><button data-m="idle" class="is-on">Parado</button><button data-m="walk">Caminhar</button><button data-m="run">Correr</button></div>
+      <button class="chip chip-solid" id="focusBtn">⤢ Corpo inteiro</button>
+    </div>
+    <div class="loader" id="loader"><div class="loader-box"><span>Vestindo o manequim…</span><div class="bar"><i id="loadBar"></i></div></div></div>
+    <div class="hint" id="hint">⟲ arraste para girar · role para zoom</div>
+    <div class="tray" id="tray">
+      <button class="tray-handle" id="trayHandle"><i></i><span>Combine com</span><small>puxe ↑</small></button>
+      <div class="tray-list" id="trayList"></div>
+    </div>
+  </div>
+  <aside class="panel">
+    <div class="panel-head"><span class="lane-tag" id="pLane">Raia 01</span><span class="mono" id="pGender"></span></div>
+    <h2 id="pName" class="h-prod"></h2>
+    <p class="script" id="pTag"></p>
+    <p id="pDesc" class="p-desc"></p>
+    <div class="slots" id="slots"></div>
+    <div class="rail-head"><span>Cor</span><b id="colorName"></b><small>← deslize →</small></div>
+    <div class="rail" id="colorRail"></div>
+    <div class="rail-head"><span>Tamanho</span><b id="sizeName"></b><small>← deslize →</small></div>
+    <div class="rail rail-size" id="sizeRail"></div>
+    <ul class="p-feats" id="pFeats"></ul>
+    <div class="buy"><div><small>Total do look</small><b id="lookTotal"></b></div><button class="btn btn-red" id="addLook">Adicionar à sacola</button></div>
+  </aside>
+</section>
+
+<!-- ============ SACOLA ============ -->
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <header><h3 class="h-prod">Sua sacola</h3><button class="icon-btn" id="drawerClose" aria-label="Fechar">✕</button></header>
+  <div class="drawer-body" id="cartList"></div>
+  <footer><div class="row"><span>Subtotal</span><b id="cartTotal">R$ 0,00</b></div><button class="btn btn-red btn-block" id="checkoutBtn">Finalizar compra</button></footer>
+</aside>
+
+<!-- ============ CHECKOUT (DEMO) ============ -->
+<div class="modal" id="checkout" aria-hidden="true">
+  <div class="modal-card">
+    <button class="icon-btn modal-x" id="checkoutClose" aria-label="Fechar">✕</button>
+    <div id="payStep">
+      <span class="eyebrow">— Pagamento · demonstração</span>
+      <h3 class="h-prod">Como você quer pagar?</h3>
+      <div class="pay-opts" id="payOpts">
+        <button class="pay is-on" data-p="pix"><b>Pix</b><span>5% de desconto · aprovação na hora</span></button>
+        <button class="pay" data-p="card"><b>Cartão de crédito</b><span>até 6× sem juros</span></button>
+        <button class="pay" data-p="boleto"><b>Boleto</b><span>vence em 3 dias úteis</span></button>
+      </div>
+      <div class="pay-view" id="payView"></div>
+      <div class="row total"><span>Total</span><b id="payTotal"></b></div>
+      <button class="btn btn-red btn-block" id="payConfirm">Confirmar pedido</button>
+      <p class="fine">Ambiente de demonstração: nenhuma cobrança é realizada e nenhum dado é enviado.</p>
+    </div>
+    <div id="payDone" hidden>
+      <svg class="medal" viewBox="0 0 120 150"><path d="M36 4l24 46L84 4" class="ribbon"/><circle cx="60" cy="92" r="44" class="m-out"/><circle cx="60" cy="92" r="32" class="m-in"/><path d="M44 92l11 11 22-24" class="m-check"/></svg>
+      <h3 class="h-prod">Pedido na pista!</h3>
+      <p>Pedido <b id="orderId"></b> confirmado em modo demonstração. Na versão final, o pagamento será processado pela API escolhida.</p>
+      <button class="btn btn-ghost btn-block" id="payBack">Voltar à vitrine</button>
+    </div>
+  </div>
+</div>
+<canvas id="confetti" aria-hidden="true"></canvas>
+<div class="toast" id="toast"></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
