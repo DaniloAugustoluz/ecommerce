@@ -167,8 +167,9 @@
       <div class="seg seg-v" id="motionSeg" title="Movimento"><button data-m="idle" class="is-on">Parado</button><button data-m="walk">Caminhar</button><button data-m="run">Correr</button></div>
       <button class="chip chip-solid" id="focusBtn">⤢ Corpo inteiro</button>
     </div>
+    <button class="nav-arrow prev" id="prevP" aria-label="Peça anterior">‹</button><button class="nav-arrow next" id="nextP" aria-label="Próxima peça">›</button>
     <div class="loader" id="loader"><div class="loader-box"><span>Vestindo o manequim…</span><div class="bar"><i id="loadBar"></i></div></div></div>
-    <div class="hint" id="hint">⟲ arraste para girar · role para zoom</div>
+    <div class="hint" id="hint">⟲ arraste para girar · setas trocam a peça</div>
     <div class="tray" id="tray">
       <button class="tray-handle" id="trayHandle"><i></i><span>Combine com</span><small>puxe ↑</small></button>
       <div class="tray-list" id="trayList"></div>
@@ -181,10 +182,11 @@
     <p id="pDesc" class="p-desc"></p>
     <div class="slots" id="slots"></div>
     <div class="rail-head"><span>Cor</span><b id="colorName"></b><small>← deslize →</small></div>
-    <div class="rail" id="colorRail"></div>
+    <div class="rail" id="colorRail" data-l="cor"></div>
     <div class="rail-head"><span>Tamanho</span><b id="sizeName"></b><small>← deslize →</small></div>
-    <div class="rail rail-size" id="sizeRail"></div>
+    <div class="rail rail-size" id="sizeRail" data-l="tam"></div>
     <ul class="p-feats" id="pFeats"></ul>
+    <button class="more-btn" id="moreBtn">Mais detalhes ▾</button>
     <div class="buy"><div><small>Total do look</small><b id="lookTotal"></b></div><button class="btn btn-red" id="addLook">Adicionar à sacola</button></div>
   </aside>
 </section>

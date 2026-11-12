@@ -92,7 +92,7 @@ export function initRoom({ sfx, cart, toast }) {
     const rm = e.target.closest('[data-rm]'); if (rm) { delete S.look[rm.dataset.rm]; if (!S.look[S.active]) S.active = Object.keys(S.look)[0]; render(); apply(); sfx.play('tick'); return; }
     const b = e.target.closest('.slot'); if (!b) return;
     if (S.look[b.dataset.s]) { S.active = b.dataset.s; S.full = false; render(); apply(); sfx.play('tick'); }
-    else { tray.classList.add('open'); const first = PRODUCTS.find((r) => r.slot === b.dataset.s && okGender(r)); $(`.rec[data-id="${first?.id}"]`)?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' }); }
+    else { const first = PRODUCTS.find((r) => r.slot === b.dataset.s && okGender(r)); if (first) wear(first); }
   });
   $('#trayList').addEventListener('click', (e) => { const b = e.target.closest('.rec'); if (b) wear(byId(b.dataset.id)); });
   $('#genderSeg').addEventListener('click', (e) => e.target.dataset.g && setGender(e.target.dataset.g));
@@ -105,8 +105,13 @@ export function initRoom({ sfx, cart, toast }) {
   $('#addLook').addEventListener('click', () => {
     cart.add(Object.values(S.look).map((it) => ({ id: it.p.id, name: it.p.name, img: it.p.img, price: it.p.price, color: it.p.colors[it.ci].name, hex: it.p.colors[it.ci].hex, size: it.p.sizes[it.si] })));
   });
+  // setas ao lado do personagem: troca a peça ativa pela próxima da mesma categoria
+  function cycle(d) { const list = PRODUCTS.filter((r) => r.slot === S.active && okGender(r)), i = list.findIndex((r) => r.id === item().p.id); if (list.length < 2) return toast('Só há esta peça nesta categoria');
+    const p = list[(i + d + list.length) % list.length]; wear(p, true); sfx.play('swipe'); toast(`${p.name} · ${brl(p.price)}`); }
+  $('#prevP').addEventListener('click', () => cycle(-1)); $('#nextP').addEventListener('click', () => cycle(1));
+  $('#moreBtn').addEventListener('click', (e) => { const on = $('.panel').classList.toggle('more'); e.currentTarget.textContent = on ? 'Menos detalhes ▴' : 'Mais detalhes ▾'; });
   $('#roomClose').addEventListener('click', close);
-  addEventListener('keydown', (e) => { if (!el.classList.contains('open')) return; if (e.key === 'Escape') close(); if (e.key === 'ArrowRight') colorRail.step(1); if (e.key === 'ArrowLeft') colorRail.step(-1); });
+  addEventListener('keydown', (e) => { if (!el.classList.contains('open')) return; if (e.key === 'Escape') close(); if (e.key === 'ArrowRight') cycle(1); if (e.key === 'ArrowLeft') cycle(-1); if (e.key === 'ArrowDown') colorRail.step(1); if (e.key === 'ArrowUp') colorRail.step(-1); });
 
   async function open(id, ev) {
     const p = byId(id); if (!p) return;

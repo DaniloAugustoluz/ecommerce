@@ -22,7 +22,8 @@ const MOTION = {
 };
 
 const HEAD = /* glsl */ `
-uniform vec4 uTop, uBot; uniform float uTopOn, uBotOn, uSh, uNeck;
+uniform vec4 uTop, uBot, uHead, uPrint; uniform float uTopOn, uBotOn, uSh, uNeck, uHairLen; uniform vec3 uEye, uSkin, uHair, uIris, uLip, uShoe; uniform sampler2D uLogo;
+float hairM(vec3 p){ if(p.y<1.5||abs(p.x)>.2) return 0.; float v=(p.y-uHead.x)/uHead.y, u=(p.z-uHead.z)/uHead.w; return step(.1+(u>0.?.52:.6)*u+.05*sin(p.x*60.), v); }
 varying vec3 vBind; varying vec2 vArm; varying vec3 vBN;
 float topM(vec3 p, vec2 arm){
   if(uTopOn<.5) return 0.; float ax=abs(p.x), y=p.y;
@@ -66,9 +67,10 @@ const FRAG_BODY = /* glsl */ `
       if(!arm&&p.z>0.&&p.y>1.0&&p.y<1.1&&abs(ax-.085-(p.y-1.0)*.35)<.0028) trim=1.;
     } else if(!arm){
       if(uTop.x<1.2&&p.y<1.3) { c=mix(c,base*.8,side*.85); c*=1.-.3*side*far*step(.3,length(fract(p.yz*240.)-.5)); }   // recorte lateral em tela
-      if(p.z>0.&&p.x>.05&&uTop.x<1.2){ float by=(p.y-1.325)/.0075, bi=floor(by); if(bi>=0.&&bi<3.&&fract(by)<.55&&p.x<.105-bi*.012) trim=1.; }   // marca no peito
+
     }
     c=mix(c,uTopAcc,trim);
+    if(!arm){ vec2 uv=(p.xy-uPrint.xy)/uPrint.zw*.5+.5; if(p.z<0.) uv.x=1.-uv.x; if(uv.x>0.&&uv.x<1.&&uv.y>0.&&uv.y<1.){ vec4 t=texture2D(uLogo,uv); c=mix(c,uTopAcc,p.z>0.?t.r:t.g*step(.5,uPrint.z*8.)); } }
     if(!arm&&uZip<.5&&p.y>neck-.017) c=base*(.8+.12*far*step(.5,fract(atan(p.x,p.z+.02)*46.)));    // gola canelada
     if(arm&&trim>.5) c*=.86+.14*far*step(.5,fract(vArm.y*90.+p.z*300.));                           // punho canelado
     if(uZip>.5&&!arm&&abs(p.y-1.365)<.007){ c=vec3(.82,.84,.86); gRough=.2; gGlow+=vec3(.1); }      // faixa refletiva
@@ -85,9 +87,16 @@ const FRAG_BODY = /* glsl */ `
     c*=1.-.2*(1.-smoothstep(0.,.0013,abs(p.y-uBot.y-.02)));
     diffuseColor.rgb=c; gMask=1.;
     gGlow+=uBotB*1.4*(1.-smoothstep(0.,.022,abs(p.y-e)))*step(uWipeB,.995);
-  } else {                                                                                        // manequim: frisos de encaixe como nas peças de vitrine
-    float g=0.; if(arm) g=1.-smoothstep(0.,.0035,abs(vArm.x-.985)); else g=max(1.-smoothstep(0.,.0016,abs(p.y-1.035)), (1.-smoothstep(0.,.0016,abs(p.y-uNeck-.028)))*step(ax,.09));
-    diffuseColor.rgb*=1.-.5*g;
+  } else {                                                                                        // personagem: pele, olhos, cabelo, rosto e tênis
+    vec3 c=uSkin;
+    if(vArm.x<-5.){ float z=vBN.z; c=z>.955?vec3(.03):z>.84?uIris:vec3(.9,.89,.87); }
+    else if(hairM(p)>.5){ c=uHair*(.82+.3*sin(p.x*230.+p.y*35.)*sin(p.y*70.+p.z*50.)); }
+    else if(p.y>uEye.y-.1&&p.z>uEye.z-.035){ float ex=abs(ax-uEye.x);
+      if(ex<.026&&abs(p.y-(uEye.y+.0235-ex*.22))<.003) c=uHair*.75;                                   // sobrancelhas
+      if(ax<.023&&abs(p.y-(uEye.y-uEye.x*2.05))<.0062*(1.-ax/.03)) c=mix(c,uLip,.75);                   // lábios
+      c=mix(c,c*vec3(1.08,.9,.88),smoothstep(.03,.0,length(vec2(ax-.045,p.y-(uEye.y-.035))))*.5);      // rubor
+    }
+    diffuseColor.rgb=c;
   }
 }`;
 const FRAG_BUMP = /* glsl */ `
@@ -103,9 +112,9 @@ const ease = (t) => 1 - Math.pow(1 - t, 3);
 const V3 = THREE.Vector3;
 
 export async function createFitting(canvas, onProgress = () => {}) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   const LOW = matchMedia('(max-width: 920px), (pointer: coarse)').matches || (navigator.hardwareConcurrency || 4) <= 4;   // aparelho modesto: qualidade mais leve
-  let dpr = Math.min(devicePixelRatio, LOW ? 1.25 : 1.6); renderer.setPixelRatio(dpr);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !LOW, powerPreference: 'high-performance' });
+  let dpr = Math.min(devicePixelRatio, LOW ? 1 : 1.6); renderer.setPixelRatio(dpr);
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08;
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = LOW ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
   const scene = new THREE.Scene(); scene.background = col('#191613'); scene.fog = new THREE.Fog('#191613', 9, 19);
@@ -168,17 +177,27 @@ export async function createFitting(canvas, onProgress = () => {}) {
   // ---------- luz
   scene.add(new THREE.HemisphereLight(0xfff3e2, 0x5a4636, 0.35));
   const key = new THREE.SpotLight(0xfff0dc, 95, 14, 0.42, 0.55, 1.6); key.position.set(2.6, 5.2, 4.2); key.target.position.set(0, 0.9, 0); key.castShadow = true;
-  key.shadow.mapSize.set(LOW ? 768 : 1280, LOW ? 768 : 1280); key.shadow.bias = -0.0004; key.shadow.radius = 4; key.shadow.autoUpdate = false; scene.add(key, key.target);
-  const rim = new THREE.SpotLight(0xdfe9ff, 60, 12, 0.5, 0.7, 1.6); rim.position.set(-3.2, 3.6, -2.2); rim.target.position.set(0, 1.1, 0); scene.add(rim, rim.target);
+  key.shadow.mapSize.set(LOW ? 512 : 1280, LOW ? 512 : 1280); key.shadow.bias = -0.0004; key.shadow.radius = 4; key.shadow.autoUpdate = false; scene.add(key, key.target);
+  const rim = new THREE.SpotLight(0xdfe9ff, 60, 12, 0.5, 0.7, 1.6); rim.position.set(-3.2, 3.6, -2.2); rim.target.position.set(0, 1.1, 0); if (!LOW) scene.add(rim, rim.target);
   const wash = new THREE.PointLight(0xe2492b, 4.2, 6, 1.8); wash.position.set(0, 0.5, -2.7); scene.add(wash);          // banho de luz na cor da peça
-  const glow = new THREE.PointLight(0xe2492b, 1.6, 2.2, 2); glow.position.set(0, FLOOR + 0.06, 0); scene.add(glow);
+  const glow = new THREE.PointLight(0xe2492b, 1.6, 2.2, 2); glow.position.set(0, FLOOR + 0.06, 0); if (!LOW) scene.add(glow);
 
   // ---------- manequins
   const U = {
     uTop: { value: new THREE.Vector4() }, uBot: { value: new THREE.Vector4() }, uTopOn: { value: 0 }, uBotOn: { value: 0 }, uZip: { value: 0 },
     uTopA: { value: col('#888') }, uTopB: { value: col('#888') }, uTopAcc: { value: col('#111') }, uBotA: { value: col('#333') }, uBotB: { value: col('#333') }, uBotAcc: { value: col('#111') },
-    uWipeT: { value: 1 }, uWipeB: { value: 1 }, uTopLoose: { value: 0 }, uBotLoose: { value: 0 }, uTopDrape: { value: 1 }, uSway: { value: 0 },
+    uWipeT: { value: 1 }, uWipeB: { value: 1 }, uTopLoose: { value: 0 }, uBotLoose: { value: 0 }, uTopDrape: { value: 1 }, uSway: { value: 0 }, uPrint: { value: new THREE.Vector4(0, 1.3, 0.13, 0.065) }, uLogo: { value: null },
+    uIris: { value: col('#4a2f1c') }, uLip: { value: col('#b85a5a') }, uShoe: { value: col('#e2492b') },
   };
+  const BRAND = (new URLSearchParams(location.search).get('marca') || 'PISTA').trim().slice(0, 28).toUpperCase();
+  { const lc = document.createElement('canvas'); lc.width = 1024; lc.height = 512; const g = lc.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, 1024, 512); g.globalCompositeOperation = 'lighter'; g.textAlign = 'center';
+    const fit = (txt, max, start, w = '800') => { let z = start; do { g.font = w + ' ' + z + 'px "Bricolage Grotesque", Arial'; z -= 6; } while (g.measureText(txt).width > max && z > 30); };
+    g.fillStyle = '#f00'; fit(BRAND, 900, 230); g.fillText(BRAND, 512, 270);                                  // frente: marca + raias
+    for (let i = 0; i < 3; i++) g.fillRect(212 + i * 40, 318 + i * 34, 600 - i * 80, 16);
+    g.font = '500 44px "DM Mono", monospace'; g.fillText(BRAND === 'PISTA' ? 'ATHLETIC CLUB · 2026' : 'COLEÇÃO TREINO · 2026', 512, 470);
+    g.fillStyle = '#0f0'; g.font = '800 330px "Bricolage Grotesque", Arial'; g.fillText('01', 512, 400); fit(BRAND, 520, 90); g.fillText(BRAND, 512, 110);   // costas: número de raia
+    const t = new THREE.CanvasTexture(lc); t.anisotropy = 8; U.uLogo.value = t; }
+  const PRINT = { tee: [0, 1.3, 0.125, 0.0625], long: [0, 1.3, 0.125, 0.0625], crop: [0, 1.305, 0.11, 0.055], tank: [0, 1.29, 0.105, 0.0525], bra: [0, 1.325, 0.05, 0.025], jacket: [0.085, 1.34, 0.05, 0.025] };
   const strapMat = std({ color: 0x141416, roughness: 0.7 }), caseMat = std({ color: 0x2a2a2e, metalness: 0.95, roughness: 0.22 });
   const faceCv = document.createElement('canvas'); faceCv.width = faceCv.height = 256;
   const faceTex = new THREE.CanvasTexture(faceCv); faceTex.colorSpace = THREE.SRGBColorSpace;
@@ -190,14 +209,15 @@ export async function createFitting(canvas, onProgress = () => {}) {
 
   function setup(gltf, g) {
     const model = gltf.scene, bd = BODY[g], B = {}; turn.add(model); model.scale.setScalar(bd.scale);
-    const own = { uSh: { value: bd.sh }, uNeck: { value: bd.neck },
+    const own = { uSh: { value: bd.sh }, uNeck: { value: bd.neck }, uHead: { value: new THREE.Vector4() }, uEye: { value: new V3() }, uHairLen: { value: g === 'f' ? 0.02 : 0.011 },
+      uSkin: { value: col(g === 'f' ? '#d9a47e' : '#c98f66') }, uHair: { value: col(g === 'f' ? '#5b3520' : '#2a1b12') },
       uEnvA: { value: new V3(bd.a[0], Math.max(bd.a[1], (bd.a[0] + bd.a[2]) * 0.47), bd.a[2]).multiplyScalar(1.04) },
       uEnvB: { value: new V3(...bd.z0.map((z, i) => (bd.z1[i] - z) / 2 * 1.1)) }, uEnvC: { value: new V3(...bd.z0.map((z, i) => (bd.z1[i] + z) / 2)) } };
     own.uEnvB.value.y = Math.max(own.uEnvB.value.y, (own.uEnvB.value.x + own.uEnvB.value.z) * 0.47);
     model.traverse((o) => {
       if (o.isBone) B[o.name] = o;
       if (!o.isMesh) return; o.castShadow = o.receiveShadow = true; o.frustumCulled = false;
-      const m = LOW ? new THREE.MeshStandardMaterial({ color: 0xe9e3d8, roughness: 0.4 }) : new THREE.MeshPhysicalMaterial({ color: 0xe9e3d8, roughness: 0.4, sheen: 1, sheenRoughness: 0.5, sheenColor: 0x555049 });
+      const m = LOW ? new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.58 }) : new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.58, sheen: 1, sheenRoughness: 0.5, sheenColor: 0x555049 });
       m.onBeforeCompile = (sh) => {
         Object.assign(sh.uniforms, U, own);
         sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + HEAD + VERT)
@@ -205,6 +225,7 @@ export async function createFitting(canvas, onProgress = () => {}) {
             vec3 dp=drape(position,(tm*uTopDrape+bm)*(1.-step(.5,_arm.y)),dn,dk);
             vec3 gN=normalize(mix(normal,dn,dk)); vec3 objectNormal=gN;`)
           .replace('#include <begin_vertex>', `vBind=position; vArm=_arm; vBN=normal; vec3 transformed=dp+gN*(tm*uTopLoose+bm*uBotLoose);
+            if(_arm.x>-5.) transformed+=normal*hairM(position)*uHairLen;
             float hemK=tm*uTopDrape*(1.-step(.5,_arm.y))*pow(1.-clamp((position.y-uTop.x)/.2,0.,1.),2.);   // balanço da barra ao andar
             transformed.z+=uSway*hemK*.02; transformed.x+=uSway*hemK*.008*sign(position.x);`);
         sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + HEAD + FRAG)
@@ -235,9 +256,30 @@ export async function createFitting(canvas, onProgress = () => {}) {
     const face = new THREE.Mesh(new THREE.CircleGeometry(0.0188, 48), faceMat); face.rotation.x = -Math.PI / 2; face.position.y = 0.0057;
     const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.0033, 0.0033, 0.007, 12), caseMat); crown.rotation.z = Math.PI / 2; crown.position.x = 0.024;
     hd.add(body, face, crown); watch.add(strap, hd); fa.add(watch);
-    return { model, B, R, watch };
+    return { model, B, R, watch, own };
   }
-  const rigs = { m: setup(gm, 'm'), f: setup(gf, 'f') }; let cur = 'm'; rigs.f.model.visible = false;
+  const rigs = { m: setup(gm, 'm'), f: setup(gf, 'f') }; let cur = 'm';
+  const shoeMat = std({ color: 0xf4f1ea, roughness: 0.55 }), soleMat = std({ color: 0x1b1915, roughness: 0.8 }), accentMat = std({ color: 0xe2492b, roughness: 0.5 });
+  for (const [g, r] of Object.entries(rigs)) {                                     // cabeça: caixa medida na malha; olhos: pelos ossos
+    const bd = BODY[g], chin = bd.neck + 0.035; let top = 0, z0 = 9, z1 = -9, pos;
+    r.model.traverse((o) => { if (o.isMesh) pos = o.geometry.attributes.position; });
+    for (let i = 0; i < pos.count; i++) { const y = pos.getY(i); if (y > chin + 0.03 && Math.abs(pos.getX(i)) < 0.12) { top = Math.max(top, y); z0 = Math.min(z0, pos.getZ(i)); z1 = Math.max(z1, pos.getZ(i)); } }
+    r.own.uHead.value.set((top + chin) / 2, (top - chin) / 2, (z0 + z1) / 2, (z1 - z0) / 2);
+    const e = r.B.eye_L.getWorldPosition(new V3()).divideScalar(bd.scale); r.own.uEye.value.set(Math.abs(e.x), e.y, e.z);
+    for (const [sd, sg] of [['L', 1], ['R', -1]]) {                                 // tênis: casco arredondado + sola, presos ao osso do pé
+      let x0 = 9, x1 = -9, zz0 = 9, zz1 = -9; for (let i = 0; i < pos.count; i++) { const x = pos.getX(i); if (pos.getY(i) < 0.07 && x * sg > 0) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); zz0 = Math.min(zz0, pos.getZ(i)); zz1 = Math.max(zz1, pos.getZ(i)); } }
+      const fb = r.B['foot_' + sd], fp = fb.getWorldPosition(new V3()).divideScalar(bd.scale), cx = (x0 + x1) / 2, cz = (zz0 + zz1) / 2, w = (x1 - x0) / 2 * 1.22, len = (zz1 - zz0) / 2 * 1.1;
+      const up = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.62), shoeMat); up.scale.set(w, 0.082, len); up.position.set(cx, 0.03, cz).sub(fp); up.castShadow = true;
+      const sole = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.03, 28), soleMat); sole.scale.set(w * 1.06, 1, len * 1.04); sole.position.set(cx, 0.013, cz).sub(fp); sole.castShadow = true;
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.008, 28), accentMat); band.scale.set(w * 1.07, 1, len * 1.05); band.position.set(cx, 0.03, cz).sub(fp);
+      fb.add(up, sole, band); }
+    if (g === 'f') {                                                                // rabo de cavalo
+      const hair = new THREE.MeshStandardMaterial({ color: 0x5b3520, roughness: 0.6 }), hb = r.B.head.getWorldPosition(new V3()).divideScalar(bd.scale);
+      const bun = new THREE.Mesh(new THREE.SphereGeometry(0.048, 20, 14), hair); bun.position.set(0, top - 0.035, z0 + 0.012).sub(hb); bun.castShadow = true;
+      const tail = new THREE.Mesh(new THREE.SphereGeometry(0.04, 20, 14), hair); tail.scale.set(0.85, 3.1, 0.8); tail.position.set(0, top - 0.155, z0 - 0.03).sub(hb); tail.rotation.x = -0.22; tail.castShadow = true;
+      r.B.head.add(bun, tail); }
+  }
+  turn.remove(rigs.f.model);
 
   // animação procedural (sem arquivos): parado respira, caminha e corre no lugar
   const P = { ...MOTION.idle }; let motion = 'idle', ph = 0;
@@ -262,6 +304,7 @@ export async function createFitting(canvas, onProgress = () => {}) {
   const st = { rot: 0.45, vel: 0, auto: 0.32, drag: false, lastUp: 0, focus: 'full', zoom: 1, pulse: 0, wipeT: 1, wipeB: 1 };
   const camNow = { x: 0, y: 0.95, z: 0, d: 7 }, wpos = new V3();
   const FOC = { full: [0.9, 5.5], top: [1.26, 3.0], bottom: [0.62, 3.4] };
+  { const c = new URLSearchParams(location.search).get('cam'); if (c) { FOC.full = c.split(',').map(Number); camNow.y = FOC.full[0]; camNow.d = FOC.full[1]; } }   // ?cam=altura,distância (inspeção)
   canvas.addEventListener('pointerdown', (e) => { st.drag = true; st.px = e.clientX; st.vel = 0; canvas.setPointerCapture(e.pointerId); });
   canvas.addEventListener('pointermove', (e) => { if (!st.drag) return; const dx = e.clientX - st.px; st.px = e.clientX; st.rot += dx * 0.011; st.vel = dx * 0.011; });
   const up = () => { st.drag = false; st.lastUp = performance.now(); };
@@ -275,7 +318,7 @@ export async function createFitting(canvas, onProgress = () => {}) {
     if (!running) return; requestAnimationFrame(frame);
     const raw = clock.getDelta(), dt = Math.min(raw, 0.05), now = performance.now(); time += dt; fr++;
     // resolução adaptativa: se o aparelho não acompanha, reduz a nitidez em vez de travar
-    if (fr > 30 && raw < 0.25 && !document.hidden) { slow = raw > 0.034 ? slow + 1 : Math.max(0, slow - 2); if (slow > 24 && dpr > 0.7) { dpr = Math.max(0.7, dpr - 0.2); renderer.setPixelRatio(dpr); resize(); slow = 0; } }
+    if (fr > 30 && raw < 0.25 && !document.hidden) { slow = raw > 0.028 ? slow + 1 : Math.max(0, slow - 2); if (slow > 20 && dpr > 0.6) { dpr = Math.max(0.6, dpr - 0.2); renderer.setPixelRatio(dpr); resize(); slow = 0; } }
     if (motion !== 'idle' || st.drag || fr % 3 === 0) key.shadow.needsUpdate = true;
     const rg = rigs[cur]; pose(rg, time, dt);
     const wrist = st.focus === 'wrist';
@@ -297,13 +340,13 @@ export async function createFitting(canvas, onProgress = () => {}) {
     cam.position.set(camNow.x, camNow.y + camNow.d * 0.07, camNow.z + camNow.d); cam.lookAt(camNow.x, camNow.y, camNow.z);
     renderer.render(scene, cam);
   }
-  const hero = (c) => { ringMat.color.set(c); wash.color.set(c); glow.color.set(c); };
+  const hero = (c) => { ringMat.color.set(c); wash.color.set(c); glow.color.set(c); accentMat.color.set(c); };
 
   await renderer.compileAsync(scene, cam);   // compila os shaders antes de mostrar, sem engasgo no primeiro quadro
   return {
     start() { if (running) return; running = true; clock.getDelta(); resize(); frame(); },
     stop() { running = false; },
-    setGender(g) { if (g === cur) return; rigs[cur].model.visible = false; cur = g; rigs[g].model.visible = true; st.pulse = 1; },
+    setGender(g) { if (g === cur) return; turn.remove(rigs[cur].model); cur = g; turn.add(rigs[g].model); st.pulse = 1; },
     setFocus(f) { st.focus = f; st.zoom = 1; },
     setMotion(n) { if (MOTION[n]) motion = n; },
     pulse() { st.pulse = 1; },
@@ -312,7 +355,7 @@ export async function createFitting(canvas, onProgress = () => {}) {
     setTop(g) {
       U.uTopOn.value = g ? 1 : 0; if (!g) return; const t = TOPS[g.type], fit = g.fit || 0;
       const same = U.uTop.value.y === t[1] && U.uTop.value.z === t[2] && U.uTop.value.w === t[3];
-      U.uTop.value.set(t[0] - 0.008 * fit, t[1], t[2], t[3]); U.uTopLoose.value = t[4] + 0.0018 * fit; U.uTopDrape.value = t[5]; U.uZip.value = g.type === 'jacket' ? 1 : 0;
+      U.uTop.value.set(t[0] - 0.008 * fit, t[1], t[2], t[3]); U.uTopLoose.value = t[4] + 0.0018 * fit; U.uTopDrape.value = t[5]; U.uZip.value = g.type === 'jacket' ? 1 : 0; U.uPrint.value.set(...PRINT[g.type]);
       U.uTopA.value.copy(same ? U.uTopB.value : col(g.color)); U.uTopB.value.set(g.color); U.uTopAcc.value.set(g.accent);
       if (!U.uTopA.value.equals(U.uTopB.value)) st.wipeT = 0; if (g.hero) hero(g.color);
     },
